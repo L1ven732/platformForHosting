@@ -1,0 +1,7 @@
+pyvenv.cfg
+Lib
+Scripts
+Include
+__pycache__/
+*.pyc
+logs

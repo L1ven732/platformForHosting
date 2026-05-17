@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="ru" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>django.db.models &#8212; документация platform 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=9ca2116e"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/translations.js?v=cd1d70c9"></script>
+    <link rel="index" title="Алфавитный указатель" href="../../../genindex.html" />
+    <link rel="search" title="Поиск" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Исходный код django.db.models</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">django.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectDoesNotExist</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">signals</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.aggregates</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># NOQA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.aggregates</span><span class="w"> </span><span class="kn">import</span> <span class="n">__all__</span> <span class="k">as</span> <span class="n">aggregates_all</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># NOQA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">__all__</span> <span class="k">as</span> <span class="n">constraints_all</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.deletion</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CASCADE</span><span class="p">,</span>
+    <span class="n">DO_NOTHING</span><span class="p">,</span>
+    <span class="n">PROTECT</span><span class="p">,</span>
+    <span class="n">RESTRICT</span><span class="p">,</span>
+    <span class="n">SET</span><span class="p">,</span>
+    <span class="n">SET_DEFAULT</span><span class="p">,</span>
+    <span class="n">SET_NULL</span><span class="p">,</span>
+    <span class="n">ProtectedError</span><span class="p">,</span>
+    <span class="n">RestrictedError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.enums</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># NOQA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">__all__</span> <span class="k">as</span> <span class="n">enums_all</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.expressions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Case</span><span class="p">,</span>
+    <span class="n">Exists</span><span class="p">,</span>
+    <span class="n">Expression</span><span class="p">,</span>
+    <span class="n">ExpressionList</span><span class="p">,</span>
+    <span class="n">ExpressionWrapper</span><span class="p">,</span>
+    <span class="n">F</span><span class="p">,</span>
+    <span class="n">Func</span><span class="p">,</span>
+    <span class="n">OrderBy</span><span class="p">,</span>
+    <span class="n">OuterRef</span><span class="p">,</span>
+    <span class="n">RowRange</span><span class="p">,</span>
+    <span class="n">Subquery</span><span class="p">,</span>
+    <span class="n">Value</span><span class="p">,</span>
+    <span class="n">ValueRange</span><span class="p">,</span>
+    <span class="n">When</span><span class="p">,</span>
+    <span class="n">Window</span><span class="p">,</span>
+    <span class="n">WindowFrame</span><span class="p">,</span>
+    <span class="n">WindowFrameExclusion</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># NOQA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">__all__</span> <span class="k">as</span> <span class="n">fields_all</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.composite</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositePrimaryKey</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.files</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileField</span><span class="p">,</span> <span class="n">ImageField</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.generated</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeneratedField</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONField</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderWrt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.indexes</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># NOQA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.indexes</span><span class="w"> </span><span class="kn">import</span> <span class="n">__all__</span> <span class="k">as</span> <span class="n">indexes_all</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.lookups</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lookup</span><span class="p">,</span> <span class="n">Transform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">Manager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.query</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Prefetch</span><span class="p">,</span>
+    <span class="n">QuerySet</span><span class="p">,</span>
+    <span class="n">aprefetch_related_objects</span><span class="p">,</span>
+    <span class="n">prefetch_related_objects</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.query_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilteredRelation</span><span class="p">,</span> <span class="n">Q</span>
+
+<span class="c1"># Imports that would create circular imports if sorted</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFERRED</span><span class="p">,</span> <span class="n">Model</span>  <span class="c1"># isort:skip</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db.models.fields.related</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># isort:skip</span>
+    <span class="n">ForeignKey</span><span class="p">,</span>
+    <span class="n">ForeignObject</span><span class="p">,</span>
+    <span class="n">OneToOneField</span><span class="p">,</span>
+    <span class="n">ManyToManyField</span><span class="p">,</span>
+    <span class="n">ForeignObjectRel</span><span class="p">,</span>
+    <span class="n">ManyToOneRel</span><span class="p">,</span>
+    <span class="n">ManyToManyRel</span><span class="p">,</span>
+    <span class="n">OneToOneRel</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="n">aggregates_all</span> <span class="o">+</span> <span class="n">constraints_all</span> <span class="o">+</span> <span class="n">enums_all</span> <span class="o">+</span> <span class="n">fields_all</span> <span class="o">+</span> <span class="n">indexes_all</span>
+<span class="n">__all__</span> <span class="o">+=</span> <span class="p">[</span>
+    <span class="s2">&quot;ObjectDoesNotExist&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;signals&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CASCADE&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DO_NOTHING&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PROTECT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RESTRICT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SET&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SET_DEFAULT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SET_NULL&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ProtectedError&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RestrictedError&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Case&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CompositePrimaryKey&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Exists&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Expression&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ExpressionList&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ExpressionWrapper&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;F&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Func&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OrderBy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OuterRef&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RowRange&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Subquery&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Value&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ValueRange&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;When&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Window&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WindowFrame&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WindowFrameExclusion&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;FileField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ImageField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeneratedField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;JSONField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OrderWrt&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Lookup&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Transform&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Manager&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Prefetch&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Q&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;QuerySet&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;aprefetch_related_objects&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;prefetch_related_objects&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DEFERRED&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Model&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;FilteredRelation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ForeignKey&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ForeignObject&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OneToOneField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ManyToManyField&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ForeignObjectRel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ManyToOneRel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ManyToManyRel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OneToOneRel&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">platform</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Искать" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Навигация</h3>
+<p class="caption" role="heading"><span class="caption-text">API (Исходный код)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">platform_app</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Код модуля</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Andrey.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

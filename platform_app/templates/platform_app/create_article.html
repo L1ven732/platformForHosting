@@ -1,0 +1,431 @@
+{% extends 'platform_app/base.html' %}
+
+{% block title %}Создать статью{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-group {
+        margin-bottom: 5px;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .form-control, #editor {
+        transition: border-color 0.5s ease;
+    }
+    .toolbar {
+        background: #f5f5f5;
+        padding: 10px;
+        border: 1px solid #ddd;
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        border-radius: 4px 4px 0 0;
+        margin-top: 12px;
+    }
+    .toolbar button {
+        padding: 5px 10px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        background: #fff;
+        border-radius: 4px;
+    }
+    .toolbar button:hover {
+        background-color: #eaeaea;
+    }
+    #editor {
+        border: 1px solid #ccc;
+        min-height: 300px;
+        padding: 15px;
+        font-family: Arial, sans-serif;
+        overflow-y: auto;
+        border-radius: 0 0 4px 4px;
+    }
+    #editor img {
+        max-width: 100%;
+        height: auto;
+    }
+    /* Стили для блоков кода */
+    #editor pre {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 15px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 15px 0;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+    #editor pre code {
+        background: none;
+        padding: 0;
+    }
+
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+        
+        /* Масштабируем */
+        transform: scale(0.7);
+        transform-origin: left center;
+        
+        /* Компенсируем пустое пространство, которое оставляет scale(0.7) */
+        margin-right: -14px; 
+        flex-shrink: 0;
+    }
+
+    /* Стили ползунка */
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #d5d8e2;
+        transition: .2s;
+        border-radius: 34px;
+        cursor: pointer;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px; width: 26px;
+        left: 4px; bottom: 4px;
+        background-color: white;
+        transition: .2s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: #007bff; }
+    input:checked + .slider:before { transform: translateX(26px); }
+
+    .toggle-container {
+        display: inline-flex; /* Контейнер подстраивается под ширину контента */
+        align-items: center;  /* Центровка по вертикали */
+        line-height: 1;       /* Убираем лишние отступы строк */
+        margin-bottom: 10px;
+    }
+
+    .label-text {
+        cursor: pointer;
+        user-select: none;
+        /* Небольшой отступ, чтобы текст не прилипал */
+        margin-left: 6px; 
+    }
+
+    .btn-primary {
+        background-color: #007bff; /* Более синий цвет */
+        border-color: #007bff;
+        padding: 10px 20px;
+    }
+    .btn-primary:hover {
+        background-color: #0868cf;
+        border-color: #0868cf;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Создать новую статью</h1>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}" role="alert" style="margin-bottom: 15px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div id="message" class="message error" role="alert" style="display: none;"></div>
+
+<div class="card">
+    <form method="post" id="articleForm">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_title" style="font-size: 16px;">Заголовок:</label>
+            <input type="text" class="form-control" id="id_title" name="title"
+                   placeholder="Введите заголовок статьи"
+                   value="{{ form.title.value|default:'' }}">
+        </div>
+
+        <div class="form-group">
+            <label style="font-size: 16px;">Содержание:</label>
+            <div class="toolbar">
+                <button type="button" data-command="bold"><b>B</b></button>
+                <button type="button" data-command="italic"><i>I</i></button>
+                <button type="button" data-command="underline"><u>U</u></button>
+                <button type="button" data-command="insertOrderedList">1. Список</button>
+                <button type="button" data-command="insertUnorderedList">• Список</button>
+                <button type="button" data-command="justifyLeft">⬅</button>
+                <button type="button" data-command="justifyCenter">⏺</button>
+                <button type="button" data-command="justifyRight">➡</button>
+                <button type="button" id="insertCodeBlock">💻 Код</button>
+                <button type="button" id="insertImage">🖼️ Изображение</button>
+            </div>
+            <div id="editor" contenteditable="true">{% if form.content.value %}{{ form.content.value|safe }}{% endif %}</div>
+            <input type="hidden" name="content" id="hiddenContent">
+        </div>
+
+        <div class="form-group" style="margin-top: 25px;">
+            <label for="id_tags" style="font-size: 16px;">Теги (через запятую):</label>
+            <input type="text" class="form-control" id="id_tags" name="tags"
+                   placeholder="Python, Django, Веб-разработка"
+                   value="{{ form.tags.value|default:'' }}"
+                   list="tagSuggestions">
+
+            <div class="tag-cloud" style="margin-top: -6px; margin-bottom: 18px;">
+                {% for tag_name in existing_tags %}
+                    <a onclick="
+                        elem = document.getElementById('id_tags');
+                        elem.value = elem.value.trim()
+                        if (elem.value != '') {
+                            elem.value += ', ';
+                        }
+                        elem.value += '{{ tag_name }}';
+                    ">{{ tag_name }}</a>
+                {% endfor %}
+            </div>
+
+            <datalist id="tagSuggestions">
+                {% for tag_name in existing_tags %}
+                    <option value="{{ tag_name }}">
+                {% endfor %}
+            </datalist>
+
+        </div>
+
+        <div class="toggle-container">
+            <label class="switch">
+                <input type="hidden" name="is_question" value="False">
+                <input type="checkbox" id="q-toggle" name="is_question" value="True">
+                <span class="slider"></span>
+            </label>
+            <label for="q-toggle" class="label-text" style="font-size: 16px;">Является вопросом</label>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 5px; margin-top: 10px;">
+            <button type="submit" class="btn btn-primary">Опубликовать</button>
+        </div>
+    </form>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const editor = document.getElementById('editor');
+        const hiddenContentInput = document.getElementById('hiddenContent');
+        const messageDiv = document.getElementById('message');
+        const titleInput = document.getElementById('id_title');
+        const tagsInput = document.getElementById('id_tags');
+        const articleForm = document.getElementById('articleForm');
+
+        const bannedWords = [
+            'хуй', 'хуи', 'хер', 'хрен',
+            'пизда', 'пизд',
+            'ебать', 'ебан', 'ебуч', 'ебло', 'заеб', 'выеб', 'поеб',
+            'блять', 'бляд',
+            'сука', 'сучка',
+            'мудак', 'мудила', 'долбоеб', 'дебил',
+            "очень_сложный_тестовый_банворд"
+        ];
+
+        function stripHtml(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            return temp.textContent || temp.innerText || '';
+        }
+
+        function normalizeText(text) {
+            return stripHtml(text)
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function wordToPattern(word) {
+            return word
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .split('')
+                .map(letter => escapeRegExp(letter))
+                .join('[\\W_]*');
+        }
+
+        function findBannedWords(text) {
+            const normalized = normalizeText(text);
+            const found = [];
+
+            bannedWords.forEach(word => {
+                const pattern = new RegExp(wordToPattern(word), 'i');
+                if (pattern.test(normalized)) {
+                    found.push(word);
+                }
+            });
+
+            return [...new Set(found)].sort();
+        }
+
+        document.querySelectorAll('.toolbar button[data-command]').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const command = this.getAttribute('data-command');
+                document.execCommand(command, false, null);
+                editor.focus();
+            });
+        });
+
+        document.getElementById('insertCodeBlock').addEventListener('click', function(e) {
+            e.preventDefault();
+            insertCodeBlock();
+        });
+
+        document.getElementById('insertImage').addEventListener('click', function(e) {
+            e.preventDefault();
+            insertImage();
+        });
+
+        function insertCodeBlock() {
+            const code = prompt('Введите ваш код:');
+            if (code) {
+                const language = prompt('Язык программирования (опционально, например: python, javascript):') || '';
+                const escapedCode = code
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                const codeBlock = language
+                    ? `<pre><code class="language-${language}">${escapedCode}</code></pre>`
+                    : `<pre><code>${escapedCode}</code></pre>`;
+
+                editor.focus();
+                document.execCommand('insertHTML', false, '\n' + codeBlock + '\n');
+            }
+        }
+
+        function insertImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size * 8 > 83886080) {
+                    messageDiv.style.display = 'block';
+                    messageDiv.textContent = 'Размер изображения должен быть не более 10 МБ';
+                    return
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const br1 = document.createElement('br');
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.maxWidth = '100%';
+                    const br2 = document.createElement('br');
+
+                    editor.appendChild(br1);
+                    editor.appendChild(img);
+                    editor.appendChild(br2);
+                };
+                reader.readAsDataURL(file);
+            };
+
+            input.click();
+        }
+
+        editor.addEventListener('paste', function(event) {
+            const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    event.preventDefault();
+                    const file = item.getAsFile();
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) {
+                        const br1 = document.createElement('br');
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.maxWidth = '100%';
+                        const br2 = document.createElement('br');
+
+                        editor.appendChild(br1);
+                        editor.appendChild(img);
+                        editor.appendChild(br2);
+                    };
+
+                    reader.readAsDataURL(file);
+                    break;
+                }
+            }
+        });
+
+        articleForm.addEventListener('submit', function(event) {
+            hiddenContentInput.value = editor.innerHTML;
+
+            const title = titleInput.value.trim();
+            const content = hiddenContentInput.value.trim();
+            const tags = tagsInput.value.trim();
+
+            let isValid = true;
+            let errorMessage = '';
+
+            if (title === '') {
+                isValid = false;
+                titleInput.style.border = '2px solid red';
+                setTimeout(() => {
+                    titleInput.style.border = '';
+                }, 3000);
+            }
+
+            if (content === '' || stripHtml(content).trim() === '') {
+                isValid = false;
+                editor.style.border = '2px solid red';
+                setTimeout(() => {
+                    editor.style.border = '1px solid #ccc';
+                }, 3000);
+            }
+
+            const foundWords = findBannedWords(`${title} ${content} ${tags}`);
+
+            if (foundWords.length > 0) {
+                isValid = false;
+                errorMessage = `Публикация содержит запрещённые слова`;
+
+                titleInput.style.border = '2px solid red';
+                editor.style.border = '2px solid red';
+                tagsInput.style.border = '2px solid red';
+
+                setTimeout(() => {
+                    titleInput.style.border = '';
+                    editor.style.border = '1px solid #ccc';
+                    tagsInput.style.border = '';
+                }, 3000);
+            }
+
+            if (!isValid) {
+                event.preventDefault();
+                messageDiv.style.display = 'block';
+                messageDiv.textContent = errorMessage || 'Пожалуйста, заполните все поля для публикации';
+            } else {
+                messageDiv.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,14 @@
+{
+  "log_level": "INFO",
+  "debug_log_level": "DEBUG",
+  "django_log_level": "INFO",
+  "sql_log_level": "DEBUG",
+  "utc_offset_hours": 3,
+  "enable_console": true,
+  "enable_file": true,
+  "log_file": "logs/platform.log",
+  "max_bytes": 5242880,
+  "backup_count": 3,
+  "log_request_body_in_debug": false,
+  "request_log_max_chars": 1000
+}

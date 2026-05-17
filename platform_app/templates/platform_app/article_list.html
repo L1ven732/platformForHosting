@@ -1,0 +1,79 @@
+{% extends 'platform_app/base.html' %}
+
+{% block title %}Лента статей{% endblock %}
+
+{% block extra_css %}
+<!-- Подключаем стили Prism.js для подсветки кода -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+
+<h1>Категории обсуждений</h1>
+<div class="card">
+    <div class="tag-cloud">
+        <a href="{% url 'platform_app:article_list' %}" class="{% if not tag %}active{% endif %}">Все</a>
+        {% for t in tags %}
+            <a href="{% url 'platform_app:articles_by_tag' t.slug %}" class="{% if tag == t %}active{% endif %}">
+                {{ t.name }}
+            </a>
+        {% endfor %}
+    </div>
+</div>
+
+<h1>Статьи и вопросы{% if tag %} с тегом "{{ tag.name }}"{% endif %}</h1>
+{% for article in articles %}
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: -3px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <h2 style="margin: 0;"><a href="{% url 'platform_app:article_detail' article.pk %}" style="text-decoration: none; color: #333;">{{ article.title }}</h2></a>
+                <span style="background: #007bff; color: white; padding: 2px 10px; border-radius: 20px; font-size: 15px; font-weight: 500;">
+                    {% if article.is_question %}
+                        Вопрос
+                    {% else %}
+                        Статья
+                    {% endif %}
+                </span>
+            </div>
+            <p class="text-muted">
+                Автор: {{ article.author.username|default:"Аноним" }} |
+                {{ article.created_at|date:"d.m.Y H:i" }}
+            </p>
+        </div>
+        
+        {% if article.tags.all %}
+            <div class="tag-cloud" style="margin-top: 20px;">
+                {% for t in article.tags.all %}
+                    <a href="{% url 'platform_app:articles_by_tag' t.slug %}">
+                        {{ t.name }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <hr>
+        <div class="article-preview" style="overflow-wrap: break-word;">
+            {{ article.content|truncatewords_html:50|safe }}
+        </div>
+
+        <a href="{% url 'platform_app:article_detail' article.pk %}" class="btn" style="margin-top: 20px;">Читать далее</a>
+    </div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
+    });
+</script>
+{% endblock %}

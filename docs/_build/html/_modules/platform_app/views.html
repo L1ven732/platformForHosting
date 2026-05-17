@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+
+<html lang="ru" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>platform_app.views &#8212; документация platform 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=9ca2116e"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/translations.js?v=cd1d70c9"></script>
+    <link rel="index" title="Алфавитный указатель" href="../../genindex.html" />
+    <link rel="search" title="Поиск" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Исходный код platform_app.views</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Представления (views) платформы обмена знаниями МШП.</span>
+
+<span class="sd">Содержит функции для работы со статьями, вопросами, комментариями,</span>
+<span class="sd">тегами, лайками, регистрацией и профилем пользователя.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.shortcuts</span><span class="w"> </span><span class="kn">import</span> <span class="n">render</span><span class="p">,</span> <span class="n">get_object_or_404</span><span class="p">,</span> <span class="n">redirect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.contrib.auth.decorators</span><span class="w"> </span><span class="kn">import</span> <span class="n">login_required</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.contrib</span><span class="w"> </span><span class="kn">import</span> <span class="n">messages</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.views.decorators.http</span><span class="w"> </span><span class="kn">import</span> <span class="n">require_POST</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.contrib.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">login</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Article</span><span class="p">,</span> <span class="n">Comment</span><span class="p">,</span> <span class="n">Like</span><span class="p">,</span> <span class="n">CommentLike</span><span class="p">,</span> <span class="n">Tag</span><span class="p">,</span> <span class="n">UserProfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignUpForm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.profanity_filter</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_banned_words</span>
+
+
+<div class="viewcode-block" id="create_tag">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.create_tag">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_tag</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Создание нового тега (категории).</span>
+
+<span class="sd">    Доступно только авторизованным пользователям.</span>
+<span class="sd">    Проверяет название на пустоту и наличие запрещённых слов.</span>
+<span class="sd">    Если тег с таким именем уже существует, предупреждает об этом.</span>
+<span class="sd">    При успешном создании перенаправляет на страницу статей по новому тегу.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (метод POST с полем &#39;name&#39;).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse с формой создания тега или редирект.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Пожалуйста, введите название категории.&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_tag.html&#39;</span><span class="p">)</span>
+
+        <span class="n">found_words</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found_words</span><span class="p">:</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Название содержит запрещённые слова&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_tag.html&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__iexact</span><span class="o">=</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Категория &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; уже существует!&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">success</span><span class="p">(</span>
+                <span class="n">request</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Категория &quot;</span><span class="si">{</span><span class="n">tag</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; успешно создана!&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:articles_by_tag&#39;</span><span class="p">,</span> <span class="n">tag_slug</span><span class="o">=</span><span class="n">tag</span><span class="o">.</span><span class="n">slug</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_tag.html&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="article_list">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.article_list">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">article_list</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">tag_slug</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Отображение списка статей/вопросов.</span>
+
+<span class="sd">    При наличии tag_slug показывает статьи только с указанным тегом.</span>
+<span class="sd">    Передаёт в шаблон полный список тегов для боковой панели.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest.</span>
+<span class="sd">        tag_slug: опциональный slug тега для фильтрации.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse со списком статей и тегов.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">articles</span> <span class="o">=</span> <span class="n">Article</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+    <span class="n">tag</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">tag_slug</span><span class="p">:</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Tag</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="n">tag_slug</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tag</span><span class="p">:</span>
+            <span class="n">articles</span> <span class="o">=</span> <span class="n">articles</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">tag</span><span class="p">)</span>
+
+    <span class="n">tags</span> <span class="o">=</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s1">&#39;slug&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/article_list.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;articles&#39;</span><span class="p">:</span> <span class="n">articles</span><span class="p">,</span>
+        <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag</span><span class="p">,</span>
+        <span class="s1">&#39;tags&#39;</span><span class="p">:</span> <span class="n">tags</span>
+    <span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="article_detail">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.article_detail">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">article_detail</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Детальная страница статьи/вопроса.</span>
+
+<span class="sd">    Показывает основной контент, все комментарии (с учётом вложенности)</span>
+<span class="sd">    и текущее состояние лайка от авторизованного пользователя.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest.</span>
+<span class="sd">        pk: первичный ключ статьи.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse с деталями статьи или редирект на список, если не найдена.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">article</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Article</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">pk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+
+    <span class="n">all_comments</span> <span class="o">=</span> <span class="n">article</span><span class="o">.</span><span class="n">comments</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">select_related</span><span class="p">(</span>
+        <span class="s1">&#39;author&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">prefetch_related</span><span class="p">(</span><span class="s1">&#39;reactions&#39;</span><span class="p">)</span>
+    <span class="n">all_comments</span> <span class="o">=</span> <span class="n">all_comments</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s1">&#39;created_at&#39;</span><span class="p">)</span>
+
+    <span class="n">is_liked</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">is_authenticated</span><span class="p">:</span>
+        <span class="n">is_liked</span> <span class="o">=</span> <span class="n">Like</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+            <span class="n">user</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">article</span><span class="o">=</span><span class="n">article</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/article_detail.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;article&#39;</span><span class="p">:</span> <span class="n">article</span><span class="p">,</span>
+        <span class="s1">&#39;all_comments&#39;</span><span class="p">:</span> <span class="n">all_comments</span><span class="p">,</span>
+        <span class="s1">&#39;is_liked&#39;</span><span class="p">:</span> <span class="n">is_liked</span><span class="p">,</span>
+    <span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="signup">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.signup">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">signup</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Регистрация нового пользователя.</span>
+
+<span class="sd">    При POST-запросе проверяет данные формы (SignUpForm) на валидность,</span>
+<span class="sd">    фильтрует запрещённые слова в имени, пароле и роли.</span>
+<span class="sd">    Создаёт учётную запись, связывает с UserProfile и автоматически входит.</span>
+<span class="sd">    При GET-запросе возвращает пустую форму.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse с формой регистрации или редирект на список статей.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="n">storage</span> <span class="o">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">get_messages</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="n">storage</span><span class="o">.</span><span class="n">used</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">form</span> <span class="o">=</span> <span class="n">SignUpForm</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+            <span class="n">username</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">cleaned_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">password</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">cleaned_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;password1&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">role_data</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">cleaned_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+            <span class="n">found_words_username</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
+            <span class="n">found_words_password</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+            <span class="n">found_words_role</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">role_data</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">found_words_username</span> <span class="ow">or</span> <span class="n">found_words_password</span> <span class="ow">or</span> <span class="n">found_words_role</span><span class="p">:</span>
+                <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span>
+                               <span class="s1">&#39;Имя пользователя, пароль или роль содержат запрещённые слова&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/signup.html&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;form&#39;</span><span class="p">:</span> <span class="n">form</span><span class="p">})</span>
+
+            <span class="n">user</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+            <span class="n">UserProfile</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">update_or_create</span><span class="p">(</span>
+                <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">,</span>
+                <span class="n">defaults</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;role&#39;</span><span class="p">:</span> <span class="n">role_data</span><span class="p">}</span>
+            <span class="p">)</span>
+
+            <span class="n">login</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">user</span><span class="p">)</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s2">&quot;Регистрация прошла успешно!&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">SignUpForm</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/signup.html&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;form&#39;</span><span class="p">:</span> <span class="n">form</span><span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="article_create">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.article_create">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">article_create</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Создание новой статьи или вопроса.</span>
+
+<span class="sd">    Поддерживает указание тегов через запятую. При отсутствии тега он создаётся автоматически.</span>
+<span class="sd">    Проверяет поля на пустоту и запрещённые слова.</span>
+<span class="sd">    Доступно только авторизованным пользователям.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST с полями title, content, is_question, tags).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse с формой создания или редирект на новую статью.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">existing_tags</span> <span class="o">=</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s1">&#39;slug&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;content&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">is_question</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;is_question&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">tag_names</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tags&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">title</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">content</span><span class="p">:</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Пожалуйста, заполните все поля для публикации.&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_article.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+                <span class="s1">&#39;existing_tags&#39;</span><span class="p">:</span> <span class="n">existing_tags</span><span class="p">,</span>
+                <span class="s1">&#39;form&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">title</span><span class="p">},</span>
+                    <span class="s1">&#39;content&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">content</span><span class="p">},</span>
+                    <span class="s1">&#39;tags&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">tag_names</span><span class="p">},</span>
+                    <span class="s1">&#39;is_question&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;checked&#39;</span><span class="p">:</span> <span class="n">is_question</span><span class="p">},</span>
+                <span class="p">}</span>
+            <span class="p">})</span>
+
+        <span class="n">found_words</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">content</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">tag_names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found_words</span><span class="p">:</span>
+            <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Публикация содержит запрещённые слова&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_article.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+                <span class="s1">&#39;existing_tags&#39;</span><span class="p">:</span> <span class="n">existing_tags</span><span class="p">,</span>
+                <span class="s1">&#39;form&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">title</span><span class="p">},</span>
+                    <span class="s1">&#39;content&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">content</span><span class="p">},</span>
+                    <span class="s1">&#39;tags&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">tag_names</span><span class="p">},</span>
+                    <span class="s1">&#39;is_question&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;checked&#39;</span><span class="p">:</span> <span class="n">is_question</span><span class="p">},</span>
+                <span class="p">}</span>
+            <span class="p">})</span>
+
+        <span class="n">article</span> <span class="o">=</span> <span class="n">Article</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">,</span>
+            <span class="n">author</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span>
+            <span class="n">is_question</span><span class="o">=</span><span class="n">is_question</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">tag_names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tag_name</span> <span class="ow">in</span> <span class="n">tag_names</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">):</span>
+                <span class="n">tag_name</span> <span class="o">=</span> <span class="n">tag_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">tag_name</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">tag</span> <span class="o">=</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__iexact</span><span class="o">=</span><span class="n">tag_name</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">tag</span><span class="p">:</span>
+                    <span class="n">tag</span> <span class="o">=</span> <span class="n">Tag</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">tag_name</span><span class="p">)</span>
+
+                <span class="n">article</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+
+        <span class="n">messages</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Статья успешно создана!&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/create_article.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;existing_tags&#39;</span><span class="p">:</span> <span class="n">existing_tags</span>
+    <span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="toggle_like">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.toggle_like">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">toggle_like</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Переключение лайка статьи (добавление/удаление).</span>
+
+<span class="sd">    Работает по принципу toggle: первый клик ставит лайк, второй — убирает.</span>
+<span class="sd">    Доступно только авторизованным пользователям.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST).</span>
+<span class="sd">        pk: первичный ключ статьи.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу статьи.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">article</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Article</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">pk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+
+    <span class="n">like</span><span class="p">,</span> <span class="n">created</span> <span class="o">=</span> <span class="n">Like</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+        <span class="n">user</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">article</span><span class="o">=</span><span class="n">article</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">created</span><span class="p">:</span>
+        <span class="n">like</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="close_question">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.close_question">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">close_question</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Закрыть вопрос (отметить как решённый).</span>
+
+<span class="sd">    Доступно только автору вопроса (или модератору – логика проверки может быть расширена).</span>
+<span class="sd">    После закрытия вопрос больше не ожидает новых ответов.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST).</span>
+<span class="sd">        pk: первичный ключ статьи-вопроса.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу вопроса.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">article</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Article</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">pk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+
+    <span class="n">article</span><span class="o">.</span><span class="n">is_closed</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">article</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="open_question">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.open_question">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">open_question</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Переоткрыть ранее закрытый вопрос.</span>
+
+<span class="sd">    Снимает флаг is_closed, чтобы снова принимать ответы.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST).</span>
+<span class="sd">        pk: первичный ключ статьи-вопроса.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу вопроса.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">article</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Article</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">pk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+
+    <span class="n">article</span><span class="o">.</span><span class="n">is_closed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">article</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="add_comment">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.add_comment">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_comment</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Добавление комментария к статье/вопросу.</span>
+
+<span class="sd">    Проверяет текст на пустоту и запрещённые слова.</span>
+<span class="sd">    Автор комментария – текущий пользователь.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST с полем &#39;text&#39;).</span>
+<span class="sd">        pk: первичный ключ статьи.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу статьи.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">article</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Article</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">pk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_list&#39;</span><span class="p">)</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;text&#39;</span><span class="p">)</span>
+    <span class="n">found_words</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">found_words</span><span class="p">:</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Комментарий содержит запрещённые слова&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Текст комментария не может быть пустым&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="n">comment</span> <span class="o">=</span> <span class="n">Comment</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">article</span><span class="o">=</span><span class="n">article</span><span class="p">,</span>
+        <span class="n">author</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span>
+        <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="toggle_comment_reaction">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.toggle_comment_reaction">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">toggle_comment_reaction</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">comment_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Переключение реакции (лайк/дизлайк) на комментарий.</span>
+
+<span class="sd">    Если ранее уже была такая же реакция – удаляется,</span>
+<span class="sd">    если другая – заменяется. Нельзя поставить лайк и дизлайк одновременно.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST с полем &#39;reaction&#39;).</span>
+<span class="sd">        comment_id: первичный ключ комментария.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу статьи, к которой относится комментарий.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comment</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Comment</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment_id</span><span class="p">)</span>
+    <span class="n">reaction_type</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reaction&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">reaction_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;like&#39;</span><span class="p">,</span> <span class="s1">&#39;dislike&#39;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="n">reaction</span><span class="p">,</span> <span class="n">created</span> <span class="o">=</span> <span class="n">CommentLike</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+        <span class="n">comment</span><span class="o">=</span><span class="n">comment</span><span class="p">,</span>
+        <span class="n">user</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span>
+        <span class="n">defaults</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;reaction&#39;</span><span class="p">:</span> <span class="n">reaction_type</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">created</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">reaction</span><span class="o">.</span><span class="n">reaction</span> <span class="o">==</span> <span class="n">reaction_type</span><span class="p">:</span>
+            <span class="n">reaction</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">reaction</span><span class="o">.</span><span class="n">reaction</span> <span class="o">=</span> <span class="n">reaction_type</span>
+            <span class="n">reaction</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="add_comment_reply">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.add_comment_reply">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_comment_reply</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">comment_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Добавление ответа на существующий комментарий (ветка обсуждения).</span>
+
+<span class="sd">    Создаёт новый комментарий с привязкой к родительскому (parent).</span>
+<span class="sd">    Проверяет текст на пустоту и запрещённые слова.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST с полем &#39;text&#39;).</span>
+<span class="sd">        comment_id: первичный ключ родительского комментария.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу статьи с этим комментарием.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parent_comment</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Comment</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment_id</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;text&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Текст ответа не может быть пустым&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">parent_comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="n">found_words</span> <span class="o">=</span> <span class="n">find_banned_words</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">found_words</span><span class="p">:</span>
+        <span class="n">messages</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Ответ содержит запрещённые слова&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">parent_comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+
+    <span class="n">Comment</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">article</span><span class="o">=</span><span class="n">parent_comment</span><span class="o">.</span><span class="n">article</span><span class="p">,</span>
+        <span class="n">author</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="p">,</span>
+        <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+        <span class="n">parent</span><span class="o">=</span><span class="n">parent_comment</span>
+    <span class="p">)</span>
+
+    <span class="n">messages</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;Ответ добавлен!&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">parent_comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="toggle_mark">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.toggle_mark">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="nd">@require_POST</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">toggle_mark</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">comment_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Отметить/снять отметку «правильный ответ» на комментарии.</span>
+
+<span class="sd">    Используется в режиме Q&amp;A, чтобы автор вопроса мог выделить решение.</span>
+<span class="sd">    Переключает флаг is_correct.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest (POST).</span>
+<span class="sd">        comment_id: первичный ключ комментария.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Редирект на страницу статьи.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comment</span> <span class="o">=</span> <span class="n">get_object_or_404</span><span class="p">(</span><span class="n">Comment</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment_id</span><span class="p">)</span>
+    <span class="n">comment</span><span class="o">.</span><span class="n">is_correct</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">comment</span><span class="o">.</span><span class="n">is_correct</span>
+    <span class="n">comment</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="s1">&#39;platform_app:article_detail&#39;</span><span class="p">,</span> <span class="n">pk</span><span class="o">=</span><span class="n">comment</span><span class="o">.</span><span class="n">article</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="profile">
+<a class="viewcode-back" href="../../platform_app.html#platform_app.views.profile">[документация]</a>
+<span class="nd">@login_required</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Страница профиля текущего пользователя.</span>
+
+<span class="sd">    Показывает все статьи/вопросы, созданные пользователем.</span>
+<span class="sd">    Доступно только авторизованным.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: HttpRequest.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        HttpResponse с шаблоном профиля.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">articles</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">articles</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">render</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s1">&#39;platform_app/profile_page.html&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;articles&#39;</span><span class="p">:</span> <span class="n">articles</span><span class="p">,</span>
+    <span class="p">})</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">platform</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Искать" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Навигация</h3>
+<p class="caption" role="heading"><span class="caption-text">API (Исходный код)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">platform_app</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Код модуля</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Andrey.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

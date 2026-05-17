@@ -1,0 +1,668 @@
+{% extends 'platform_app/base.html' %}
+
+{% block content %}
+
+<h1>Профиль</h1>
+
+<div class="card profile-card">
+
+    <div class="profile-header">
+
+        <div class="avatar-section"
+             onclick="openModal('avatarModal')">
+
+            {% if user.profile.avatar %}
+
+                <img src="{{ user.profile.avatar.url }}"
+                     alt="Аватар пользователя"
+                     class="avatar">
+
+            {% else %}
+
+                <div class="avatar-placeholder">
+                    {{ user.username|first|upper }}
+                </div>
+
+            {% endif %}
+
+            <div class="avatar-overlay">
+                Сменить аватар
+            </div>
+
+        </div>
+
+        <div class="profile-info">
+
+            <h2 class="profile-username">
+
+                {% if user.profile.role %}
+                    <span class="user-role">
+                        [{{ user.profile.role }}]
+                    </span>
+                {% endif %}
+
+                {{ user.username }}
+
+            </h2>
+
+            <div class="text-muted">
+                {{ user.email|default:"Email не указан" }}
+            </div>
+
+            <div class="text-muted">
+                На платформе с {{ user.date_joined|date:"d.m.Y" }}
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="profile-actions">
+
+        <button class="btn btn-primary"
+                onclick="openModal('profileModal')">
+
+            Редактировать профиль
+
+        </button>
+
+        <button class="btn btn-danger"
+                onclick="openModal('passwordModal')">
+
+            Сменить пароль
+
+        </button>
+
+    </div>
+
+</div>
+
+<!-- PROFILE MODAL -->
+
+<div id="profileModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2>Редактирование профиля</h2>
+
+            <button class="modal-close"
+                    type="button"
+                    onclick="closeModal('profileModal')">
+
+                ×
+
+            </button>
+
+        </div>
+
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="form_type"
+                   value="profile">
+
+            <label>Имя пользователя</label>
+            {{ user_form.username }}
+
+            <label>Имя</label>
+            {{ user_form.first_name }}
+
+            <label>Фамилия</label>
+            {{ user_form.last_name }}
+
+            <label>Email</label>
+            {{ user_form.email }}
+
+            <label>Роль</label>
+            {{ profile_form.role }}
+
+            <button class="btn btn-primary"
+                    type="submit">
+
+                Сохранить изменения
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- AVATAR MODAL -->
+
+<div id="avatarModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2>Смена аватара</h2>
+
+            <button type="button"
+                    class="modal-close"
+                    onclick="closeModal('avatarModal')">
+
+                ×
+
+            </button>
+
+        </div>
+
+        <form method="POST"
+              enctype="multipart/form-data"
+              id="avatarForm">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="form_type"
+                   value="avatar">
+
+            <label>Выберите изображение</label>
+
+            <input type="file"
+                   id="avatarInput"
+                   accept="image/*">
+
+            <input type="hidden"
+                   name="cropped_image"
+                   id="croppedImageInput">
+
+            <div class="crop-container">
+
+                <img id="cropperImage"
+                     alt="Редактирование аватара">
+
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary save-avatar-btn">
+
+                Сохранить аватар
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- PASSWORD MODAL -->
+
+<div id="passwordModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2>Смена пароля</h2>
+
+            <button class="modal-close"
+                    type="button"
+                    onclick="closeModal('passwordModal')">
+
+                ×
+
+            </button>
+
+        </div>
+
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="form_type"
+                   value="password">
+
+            <label>Старый пароль</label>
+            {{ password_form.old_password }}
+
+            <label>Новый пароль</label>
+            {{ password_form.new_password1 }}
+
+            <label>Повторите пароль</label>
+            {{ password_form.new_password2 }}
+
+            <button class="btn btn-danger"
+                    type="submit">
+
+                Изменить пароль
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<h1>Мои публикации ({{ articles.count }})</h1>
+
+{% for article in articles %}
+
+    <div class="card">
+
+        <div class="article-header">
+
+            <div class="article-title-wrapper">
+
+                <h2 class="article-title">
+
+                    <a href="{% url 'platform_app:article_detail' article.pk %}">
+                        {{ article.title }}
+                    </a>
+
+                </h2>
+
+                <span class="article-badge">
+
+                    {% if article.is_question %}
+                        Вопрос
+                    {% else %}
+                        Статья
+                    {% endif %}
+
+                </span>
+
+            </div>
+
+            <p class="text-muted">
+                {{ article.created_at|date:"d.m.Y H:i" }}
+            </p>
+
+        </div>
+
+        {% if article.tags.all %}
+
+            <div class="tag-cloud article-tags">
+
+                {% for t in article.tags.all %}
+
+                    <a href="{% url 'platform_app:articles_by_tag' t.slug %}">
+                        {{ t.name }}
+                    </a>
+
+                {% endfor %}
+
+            </div>
+
+        {% endif %}
+
+        <hr>
+        <div class="article-preview" style="overflow-wrap: break-word;">
+            {{ article.content|truncatewords_html:50|safe }}
+        </div>
+
+        <a href="{% url 'platform_app:article_detail' article.pk %}"
+           class="btn read-more-btn">
+
+            Читать далее
+
+        </a>
+
+    </div>
+
+{% empty %}
+
+    <div class="card">
+        <p style="text-align: center; color: #666;">У вас пока нет публикаций</p>
+    </div>
+
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_css %}
+
+<style>
+
+.profile-card {
+    padding: 32px;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.profile-username {
+    margin-bottom: 4px;
+}
+
+.user-role {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+}
+
+.avatar-section {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #e9edf2;
+    transition: transform 0.2s ease;
+}
+
+.avatar-section:hover .avatar {
+    transform: scale(1.03);
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #2c3e50;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    font-weight: bold;
+}
+
+.avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px;
+}
+
+.avatar-section:hover .avatar-overlay {
+    opacity: 1;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    overflow-y: auto;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background: white;
+    max-width: 650px;
+    margin: auto;
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    animation: modalShow 0.18s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.modal-close {
+    border: none;
+    background: transparent;
+    font-size: 28px;
+    cursor: pointer;
+    color: #7c8b9c;
+    transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+    color: #1a2c3e;
+}
+
+.crop-container {
+    width: 100%;
+    max-height: 420px;
+    margin-top: 20px;
+    display: none;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.crop-container img {
+    max-width: 100%;
+}
+
+.cropper-view-box,
+.cropper-face {
+    border-radius: 50%;
+}
+
+.save-avatar-btn {
+    margin-top: 20px;
+}
+
+.article-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.article-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.article-title {
+    margin: 0;
+}
+
+.article-badge {
+    background: #007bff;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.article-tags {
+    margin-top: 20px;
+}
+
+.read-more-btn {
+    margin-top: 20px;
+}
+
+@keyframes modalShow {
+
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 640px) {
+
+    .profile-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .profile-actions {
+        width: 100%;
+    }
+
+    .profile-actions .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .modal-content {
+        padding: 24px;
+    }
+}
+
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+
+function openModal(id) {
+
+    const modal = document.getElementById(id);
+
+    if (!modal) return;
+
+    modal.style.display = 'block';
+
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+
+    const modal = document.getElementById(id);
+
+    if (!modal) return;
+
+    modal.style.display = 'none';
+
+    document.body.style.overflow = 'auto';
+}
+
+window.addEventListener('click', function(event) {
+
+    document.querySelectorAll('.modal').forEach(modal => {
+
+        if (event.target === modal) {
+
+            modal.style.display = 'none';
+
+            document.body.style.overflow = 'auto';
+        }
+
+    });
+
+});
+
+let cropper;
+
+const avatarInput = document.getElementById('avatarInput');
+
+const cropperImage = document.getElementById('cropperImage');
+
+const cropContainer = document.querySelector('.crop-container');
+
+const croppedInput = document.getElementById('croppedImageInput');
+
+avatarInput?.addEventListener('change', function(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+        cropContainer.style.display = 'block';
+
+        cropperImage.src = e.target.result;
+
+        if (cropper) {
+            cropper.destroy();
+        }
+
+        cropper = new Cropper(cropperImage, {
+
+            aspectRatio: 1,
+
+            viewMode: 1,
+
+            dragMode: 'move',
+
+            guides: false,
+
+            center: false,
+
+            highlight: false,
+
+            cropBoxMovable: true,
+
+            cropBoxResizable: true,
+
+            toggleDragModeOnDblclick: false,
+        });
+    };
+
+    reader.readAsDataURL(file);
+});
+
+const avatarForm = document.getElementById('avatarForm');
+
+avatarForm?.addEventListener('submit', function() {
+
+    if (!cropper) return;
+
+    const canvas = cropper.getCroppedCanvas({
+
+        width: 400,
+        height: 400,
+
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+    });
+
+    croppedInput.value = canvas.toDataURL('image/png');
+});
+
+</script>
+
+{% endblock %}

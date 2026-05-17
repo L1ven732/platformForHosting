@@ -1,0 +1,12 @@
+stages:
+  - stage1
+
+job1:
+  stage: stage1
+  script:
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install django coverage
+    - pip install Pillow
+    - coverage run manage.py test
+    - coverage report

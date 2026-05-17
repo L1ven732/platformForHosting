@@ -1,0 +1,163 @@
+{% extends 'platform_app/base.html' %}
+
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Регистрация</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="id_username">Имя пользователя:</label>
+                <input type="text" name="username" id="id_username" class="form-control"
+                       placeholder="Придумайте имя пользователя" required autofocus>
+                {% if form.username.errors %}
+                    <div class="error-text">{{ form.username.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_role">Роль:</label>
+                <input type="text" name="role" id="id_role" class="form-control"
+                       placeholder="Например: Python разработчик">
+
+                <small style="color: #666;">
+                    Укажите вашу специализацию или интерес (например: Python разработчик, C++ разработчик, дизайнер).
+                    Это поможет находить людей для общения по вашим темам.
+                </small>
+
+                {% if form.role.errors %}
+                    <div class="error-text">{{ form.role.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_email">Email:</label>
+                <input type="email" name="email" id="id_email" class="form-control"
+                       placeholder="example@mail.ru" required>
+                {% if form.email.errors %}
+                    <div class="error-text">{{ form.email.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_password1">Пароль:</label>
+                <input type="password" name="password1" id="id_password1" class="form-control"
+                       placeholder="Придумайте пароль" required>
+                {% if form.password1.errors %}
+                    <div class="error-text">{{ form.password1.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_password2">Подтверждение пароля:</label>
+                <input type="password" name="password2" id="id_password2" class="form-control"
+                       placeholder="Повторите пароль" required>
+                {% if form.password2.errors %}
+                    <div class="error-text">{{ form.password2.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+        </form>
+
+        <div class="auth-links">
+            <p>Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a></p>
+            <p><a href="{% url 'platform_app:article_list' %}">← На главную</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+    }
+    .auth-card {
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+    .auth-card h2 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+    }
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+    .error-text {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+    .btn-primary {
+        background: #007bff;
+        color: white;
+        padding: 12px;
+        border: none;
+        border-radius: 4px;
+        width: 100%;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+    .btn-block {
+        display: block;
+        width: 100%;
+    }
+    .auth-links {
+        margin-top: 25px;
+        text-align: center;
+    }
+    .auth-links p {
+        margin: 10px 0;
+        color: #666;
+    }
+    .auth-links a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .auth-links a:hover {
+        text-decoration: underline;
+    }
+    .alert {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends 'platform_app/base.html' %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: -3px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <h2 style="margin: 0;">
+                {% if article.is_closed %}
+                    <a href="{% url 'platform_app:article_detail' article.pk %}" style="text-decoration: none; color: #5f6367;">
+                        (Закрыт) {{ article.title }}
+                    </a>
+                {% else %}
+                    <a href="{% url 'platform_app:article_detail' article.pk %}" style="text-decoration: none; color: #333;">
+                        {{ article.title }}
+                    </a>
+                {% endif %}
+            </h2>
+            <span style="background: #007bff; color: white; padding: 2px 10px; border-radius: 20px; font-size: 15px; font-weight: 500;">
+                {% if article.is_question %}
+                    Вопрос
+                {% else %}
+                    Статья
+                {% endif %}
+            </span>
+        </div>
+        <p class="text-muted">
+            Автор: {{ article.author.username|default:"Аноним" }} |
+            {{ article.created_at|date:"d.m.Y H:i" }}
+        </p>
+    </div>
+
+    {% if article.tags.all %}
+        <div class="tag-cloud" style="margin-top: 20px;">
+            {% for t in article.tags.all %}
+                <a href="{% url 'platform_app:articles_by_tag' t.slug %}" class="{% if tag == t %}active{% endif %}">
+                    {{ t.name }}
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <hr>
+    <div class="article-content" style="overflow-wrap: break-word;">{{ article.content|safe }}</div>
+
+    <div style="margin-top: 20px;">
+        {% if user.is_authenticated %}
+            {% if article.is_question %}
+                {% if user == article.author %}
+                    {% if article.is_closed %}
+                        <form action="{% url 'platform_app:open_question' article.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">
+                                Открыть вопрос
+                            </button>
+                        </form>
+                    {% else %}
+                        <form action="{% url 'platform_app:close_question' article.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                Закрыть вопрос
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+            {% else %}
+                <form action="{% url 'platform_app:toggle_like' article.pk %}" method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn {% if is_liked %}btn-danger{% endif %}">
+                        ♥ {{ article.total_likes }}
+                    </button>
+                </form>
+            {% endif %}
+        {% elif not article.is_question %}
+            <span class="text-muted">♥ {{ article.total_likes }} лайков</span>
+        {% endif %}
+    </div>
+</div>
+
+{% if not article.is_closed %}
+    {% if user.is_authenticated %}
+    <div class="card">
+        <form action="{% url 'platform_app:add_comment' article.pk %}" method="post">
+            {% csrf_token %}
+            <textarea name="text" placeholder="Напишите комментарий..." style="margin: 0;"></textarea>
+            <button type="submit" class="btn" style="margin-top: 10px;">Отправить комментарий</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center;">
+        <p><a href="{% url 'login' %}">Войдите</a> чтобы написать комментарий</p>
+    </div>
+    {% endif %}
+{% endif %}
+
+<h3>
+    {% if article.is_question %}
+        Ответы на вопрос
+    {% else %}
+        Комментарии 
+    {% endif %}
+    ({{ all_comments|length }})
+</h3>
+
+{% for comment in all_comments %}
+<div class="card" style="padding: 15px; margin-bottom: 15px; margin-left: {% widthratio comment.level 1 25 %}px; border-left: 4px solid {% if comment.is_correct %}#28a745{% else %}#007bff{% endif %}; background-color: white;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            {% if article.is_question %}
+                {% if user == article.author %}
+                    <form action="{% url 'platform_app:toggle_mark' comment.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success" style="{% if comment.is_correct %}background: #28a745; color: white; border-color: #28a745;{% endif %} padding: 2.5px 9.4px; border-radius: 20px; font-size: 14px;">
+                            Верно!
+                        </button>
+                    </form>
+                {% else %}
+                    {% if comment.is_correct %}
+                        <span style="background: #28a745; color: white; padding: 2px 10px; border-radius: 20px; font-size: 14px; font-weight: 500;">
+                            Верный
+                        </span>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+            <p style="margin: 0; line-height: 1.5;">{{ comment.text|linebreaksbr }}</p>
+        </div>
+        <p class="text-muted">
+            Автор: {{ comment.user.username|default:"Аноним" }} |
+            {{ comment.created_at|date:"d.m.Y H:i" }}
+        </p>
+    </div>
+
+    {% if user.is_authenticated %}
+        {% if not article.is_question %}
+            <div style="display: flex; gap: 12px; margin-top: 12px;">
+                <form action="{% url 'platform_app:toggle_comment_reaction' comment.id %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="reaction" value="like">
+                    <button type="submit" class="btn btn-sm
+                        {% for reaction in comment.reactions.all %}
+                            {% if reaction.user == user and reaction.reaction == 'like' %}btn-danger{% endif %}
+                        {% endfor %}"
+                        style="border-radius: 20px; padding: 4px 12px;">
+                        👍 {{ comment.total_likes }}
+                    </button>
+                </form>
+
+                <form action="{% url 'platform_app:toggle_comment_reaction' comment.id %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="reaction" value="dislike">
+                    <button type="submit" class="btn btn-sm 
+                        {% for reaction in comment.reactions.all %}
+                            {% if reaction.user == user and reaction.reaction == 'dislike' %}btn-dislike{% endif %}
+                        {% endfor %}"
+                        style="border-radius: 20px; padding: 4px 12px;">
+                        👎 {{ comment.total_dislikes }}
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+        
+        {% if not article.is_closed %}
+            <div style="margin-top: 12px;">
+                <form action="{% url 'platform_app:add_comment_reply' comment.id %}" method="post" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    {% csrf_token %}
+                    <input type="text" name="text" placeholder="Напишите ответ..." 
+                        style="padding: 8px 12px; width: 250px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; margin: 0;">
+                    <button type="submit" class="btn" style="padding: 6px 16px; border-radius: 20px;">
+                        Ответить
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    {% else %}
+        {% if not article.is_question %}
+            <div style="margin-top: 8px;">
+                <span class="text-muted">👍 {{ comment.total_likes }} | 👎 {{ comment.total_dislikes }}</span>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 40px;">
+    <p class="text-muted">Комментариев пока нет. Будьте первым!</p>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
+    });
+</script>
+{% endblock %}
