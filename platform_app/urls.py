@@ -30,5 +30,10 @@ urlpatterns = [
     path('comment/<int:comment_id>/mark/',
          views.toggle_mark, name='toggle_mark'),
     path('search/', views.search, name='search'),
+    path(
+        'article/<int:pk>/pdf/',
+        views.export_article_pdf,
+        name='export_article_pdf'
+    ),
 
 ]

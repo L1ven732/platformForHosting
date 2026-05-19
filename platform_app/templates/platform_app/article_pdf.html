@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+
+    <style>
+        body {
+            font-family: DejaVu Sans;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #222;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin-bottom: 10px;
+        }
+
+        .meta {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .content {
+            margin-top: 25px;
+        }
+
+        .footer {
+            margin-top: 50px;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>{{ article.title }}</h1>
+
+    <div class="meta">
+        Автор: {{ article.author.username }}<br>
+        Дата: {{ article.created_at|date:"d.m.Y H:i" }}
+    </div>
+
+    <hr>
+
+    <div class="content">
+        {{ article.content|safe }}
+    </div>
+
+    <div class="footer">
+        Экспортировано с платформы
+    </div>
+
+</body>
+</html>

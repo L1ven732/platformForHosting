@@ -46,6 +46,11 @@
     <div class="article-content" style="overflow-wrap: break-word;">{{ article.content|safe }}</div>
 
     <div style="margin-top: 20px;">
+        <a href="{% url 'platform_app:export_article_pdf' article.pk %}"
+            class="btn btn-success">
+            Скачать PDF
+        </a>
+
         {% if user.is_authenticated %}
             {% if article.is_question %}
                 {% if user == article.author %}

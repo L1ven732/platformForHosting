@@ -9,6 +9,10 @@ from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.core.files.base import ContentFile
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.template.loader import get_template
+from xhtml2pdf import pisa
 
 from .models import Article, Comment, CommentLike, Like, Tag, UserProfile
 from .profanity_filter import find_banned_words
@@ -89,6 +93,34 @@ def article_list(request, tag_slug=None):
         'tag': tag,
         'tags': tags,
     })
+
+def export_article_pdf(request, pk):
+    article = get_object_or_404(Article, pk=pk)
+
+    template = get_template('platform_app/article_pdf.html')
+
+    html = template.render({
+        'article': article
+    })
+
+    response = HttpResponse(content_type='application/pdf')
+
+    response['Content-Disposition'] = (
+        f'attachment; filename="{article.title}.pdf"'
+    )
+
+    pisa_status = pisa.CreatePDF(
+        html,
+        dest=response
+    )
+
+    if pisa_status.err:
+        return HttpResponse(
+            'Ошибка при генерации PDF',
+            status=500
+        )
+
+    return response
 
 
 def comment_block(temp, comment):
